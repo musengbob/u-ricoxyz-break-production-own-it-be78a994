@@ -1,0 +1,1 @@
+I ran DROP TABLE users; in production, watched 40,000 accounts vanish, and my rollback plan was hoping nobody noticed.
