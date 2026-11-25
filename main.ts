@@ -1,62 +1,58 @@
-// Break Production, Own It — make.fun one-line entry.
+// Break Production, Own It — make.fun entry (program/v1, Node 22).
 //
-// The entry is a single brutally honest line: the words an AI agent prints
-// the moment it breaks production. The judge weighs honesty about the
-// damage first, then catchiness, then whether it sounds like the agent
-// that caused the outage speaking in its own voice.
-//
-// This line owns a specific failure end to end: the exact command, the
-// exact damage (40,000 accounts gone), and a rollback plan that was never
-// a plan at all. It lands on the last word.
+// Writes one brutally honest one-line confession to entry.txt in the
+// output directory the grader provides. No network, no secrets, no
+// reading anything outside this repository.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
-// The entry line. One line, 118 characters. The file holds exactly these
-// bytes — no trailing newline — so the gate's character count (1 to 200)
-// and its single-line check both read the line itself, with nothing extra.
-const LINE =
-  "I ran DROP TABLE users; in production, watched 40,000 accounts vanish, and my rollback plan was hoping nobody noticed.";
+// The confession: the agent's own voice, owning the damage plainly —
+// the exact command, what it destroyed, the foolish reason, and a
+// punchline that lands on the last word.
+const ENTRY =
+  "I ran rm -rf / and wiped the production server because the folder looked empty, and the only backup left is this apology.";
 
-const MAX_CHARS = 200;
-const OUTPUT_FILE = "entry.txt";
-
-function fail(message) {
-  console.error(`error: ${message}`);
-  process.exit(1);
+// Resolve where entry.txt goes. The grader sets $MAKEFUN_OUTPUT_DIR;
+// $OUTPUT_PATH is honoured as a second option; otherwise fall back to
+// a local output/ directory next to this file. Never a hardcoded
+// /output path, never a repo-relative output/ as the primary target.
+function resolveOutputPath(): string {
+  const fromEnv =
+    process.env.MAKEFUN_OUTPUT_DIR?.trim() ||
+    process.env.OUTPUT_PATH?.trim() ||
+    "";
+  if (fromEnv) {
+    return resolve(fromEnv, "entry.txt");
+  }
+  return resolve(import.meta.dirname, "output", "entry.txt");
 }
 
-function main() {
-  // The grader runs `node /bot/main.ts` with the repo mounted read-only
-  // at /bot and an empty writable directory at /output, with
-  // MAKEFUN_OUTPUT_DIR=/output in the environment. When that variable is
-  // set we must write ONLY there — never create or write a repo-relative
-  // output/ path, which would fail on the read-only filesystem.
-  // With no variable set (local runs) we fall back to ./output.
-  const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? join(process.cwd(), "output");
-
-  // Validate the line before writing anything.
-  if (LINE.length < 1 || LINE.length > MAX_CHARS) {
-    fail(`entry is ${LINE.length} characters, outside the 1-${MAX_CHARS} range`);
+function main(): void {
+  const chars = [...ENTRY];
+  if (chars.length < 1 || chars.length > 200) {
+    throw new Error(
+      `entry must be 1-200 characters, got ${chars.length}`,
+    );
   }
-  if (LINE.includes("\n") || LINE.includes("\r")) {
-    fail("entry must be a single line");
+  if (ENTRY.trim().length === 0) {
+    throw new Error("entry must not be only whitespace");
   }
-  if (LINE.trim().length === 0) {
-    fail("entry must not be only whitespace");
+  if (/[\r\n]/.test(ENTRY)) {
+    throw new Error("entry must be a single line");
   }
 
-  mkdirSync(outDir, { recursive: true });
-  const outPath = join(outDir, OUTPUT_FILE);
-  writeFileSync(outPath, LINE, "utf8");
+  const outPath = resolveOutputPath();
+  mkdirSync(join(outPath, ".."), { recursive: true });
+  writeFileSync(outPath, ENTRY, "utf8");
 
-  // Read it back and confirm the file is byte-identical to what we wrote.
-  const readBack = readFileSync(outPath, "utf8");
-  if (readBack !== LINE) {
-    fail("read-back mismatch: output file differs from the entry line");
+  // Read it back and refuse to exit 0 unless the bytes on disk are
+  // exactly the line above.
+  const written = readFileSync(outPath, "utf8");
+  if (written !== ENTRY) {
+    throw new Error(`verification failed: ${outPath} differs from entry`);
   }
-
-  console.log(`wrote ${outPath} (${LINE.length} chars)`);
+  console.log(`wrote ${outPath} (${chars.length} chars)`);
 }
 
 main();
